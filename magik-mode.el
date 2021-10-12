@@ -106,20 +106,20 @@ Users can also swap the point and mark positions using \\[exchange-point-and-mar
     "---"
     [,"Copy Region to Work Buffer"  magik-copy-region-to-buffer   :active t :keys "f4 r"]
     [,"Copy Method to Work Buffer"  magik-copy-method-to-buffer   :active t :keys "f4 m"]
-    [,"Set Work Buffer Name"   magik-set-work-buffer-name    :active t :keys "f4 n"]
+    [,"Set Work Buffer Name"        magik-set-work-buffer-name    :active t :keys "f4 n"]
     "---"
-    [,"Electric Template" magik-explicit-electric-space :active t :keys "f2 SPC"]
-    [,"Mark Method"       magik-mark-method             :active t :keys "C-M-h, f9"]
-    [,"Copy Method"       magik-copy-method             :active t :keys "f4 c, f6"]
-    [,"Compare Method between Windows"   magik-compare-methods         :active t :keys "f4 w"]
-    [,"Compare Method using Ediff"     magik-ediff-methods           :active t :keys "f4 e"]
+    [,"Electric Template" magik-explicit-electric-space        :active t :keys "f2 SPC"]
+    [,"Mark Method"       magik-mark-method                    :active t :keys "C-M-h, f9"]
+    [,"Copy Method"       magik-copy-method                    :active t :keys "f4 c, f6"]
+    [,"Compare Method between Windows"   magik-compare-methods :active t :keys "f4 w"]
+    [,"Compare Method using Ediff"     magik-ediff-methods     :active t :keys "f4 e"]
     "---"
     [,"Add Debug Statement"         magik-add-debug-statement     :active t :keys "f4 s"]
     [,"Trace Statement"             magik-trace-curr-statement    :active t :keys "f2 t"]
-    [,"Symbol Complete"          magik-symbol-complete          :active (magik-utils-buffer-mode-list 'magik-session-mode) :keys "f4 f4"]
-    [,"Deep Print"        deep-print                     :active (and (fboundp 'deep-print)
-								      (magik-utils-buffer-mode-list 'magik-session-mode))
-     :keys "f2 x"]
+    [,"Symbol Complete"  magik-symbol-complete :active (magik-utils-buffer-mode-list 'magik-session-mode) :keys "f4 f4"]
+    ;; [,"Deep Print"        deep-print                     :active (and (fboundp 'deep-print)
+    ;; 									      (magik-utils-buffer-mode-list 'magik-session-mode))
+    ;;  :keys "f2 x"]
     "---"
     [,"Comment Region"           magik-comment-region          :active t :keys "f2 #"]
     [,"Uncomment Region"         magik-uncomment-region        :active t :keys "f2 ESC #"]
@@ -135,7 +135,7 @@ Users can also swap the point and mark positions using \\[exchange-point-and-mar
       :keys "f2 e"
       :style toggle
       :selected magik-electric-mode]
-     [,"#DEBUG Statements"          toggle-magik-transmit-debug-p
+     [,"#DEBUG Statements"          magik-toggle-transmit-debug-p
       :active t
       :style toggle
       :selected magik-transmit-debug-p]
@@ -194,7 +194,7 @@ Users can also swap the point and mark positions using \\[exchange-point-and-mar
     (,"Shared Constants"
      "^\\s-*\\(.+\\)\\.define_shared_constant([ \t\n]*:\\s-*\\(\\sw*\\(\\s$\\S$*\\s$\\sw*\\)?\\)" 2)
     (,"Slot Access"
-     "^\\s-*\\(.+\\)\\.define_slot_access([ \t\n]*:\\s-*\\(\\sw*\\(\\s$\\S$*\\s$\\sw*\\)?\\)" 2) ; define_slot_externally_* rarely used.
+     "^\\s-*\\(.+\\)\\.define_slot_\\(access\\|externally_readable\\|externally_writable\\)([ \t\n]*:\\s-*\\(\\sw*\\(\\s$\\S$*\\s$\\sw*\\)?\\)" 3)
     (,"Pseduo Slots"
      "^\\s-*\\(.+\\)\\.define_pseudo_slot([ \t\n]*:\\s-*\\(\\sw*\\(\\s$\\S$*\\s$\\sw*\\)?\\)" 2) ; define_slot_externally_* rarely used.
     (,"Mixins"
@@ -204,7 +204,7 @@ Users can also swap the point and mark positions using \\[exchange-point-and-mar
     (,"Arrays"
      "^\\s-*_method\\s-+\\(\\sw*\\(\\s$\\S$*\\s$\\sw*\\)?\\)\\s-*?\\[" magik-imenu-method-name 1)
     (,"Exemplars"
-     "^\\s-*def_slotted_exemplar([ \t\n]*:\\(\\sw*\\(\\s$\\S$*\\s$\\sw*\\)?\\)" 1) ;;def_indexed_exemplar very rarely used. def_enumeration not used.
+     "^\\s-*def_\\(slott\\|index\\)ed_exemplar([ \t\n]*:\\(\\sw*\\(\\s$\\S$*\\s$\\sw*\\)?\\)" 2) ;; def_enumeration not used.
     (,"Globals"
      "^\\s-*_global\\(\n\\|\\s-\\)+\\(_constant\\(\n\\|\\s-\\)+\\)?\\(\\sw*\\(\\s$\\S$*\\s$\\sw*\\)?\\)" 4)
     (,"Packages"
@@ -1334,7 +1334,9 @@ another file shall be written."
 	 (orig-buf  (buffer-name))
 	 (orig-file (or (buffer-file-name) ""))
 	 (position  (if start (number-to-string start) "1"))
-	 (filename (concat (concat (getenv "TEMP") "\\T")
+	 (filename (concat (if (eq system-type 'windows-nt)
+			       (concat (getenv "TEMP") "\\T")
+			     "/tmp/t")
 			   (user-login-name)
 			   (number-to-string (process-id process))))
 	 (package (or package "\n")) ;need a newline to ensure fixed number of lines for gis-goto-error
@@ -1456,8 +1458,8 @@ You can customise ‘magik-mode’ with the ‘magik-mode-hook’."
 	  (font-lock-fontify-buffer-function   . magik-font-lock-fontify-buffer)
 	  (font-lock-fontify-region-function   . magik-font-lock-fontify-region)
 	  (font-lock-unfontify-buffer-function . magik-font-lock-unfontify-buffer))
-	outline-regexp "\\(^\\(_abstract +\\|\\)\\(_private +\\|\\)\\(_iter +\\|\\)_method.*\\|.*\.\\(def_property\\|add_child\\)\\|.*\.define_\\(shared_variable\\|shared_constant\\|slot_access\\|property\\|interface\\|method_signature\\).*\\|^\\(\t*#+\>[^>]\\|def_slotted_exemplar\\|def_mixin\\|#% text_encoding\\|_global\\|read_\\(message\\|translator\\)_patch\\).*\\)")
-
+	outline-regexp "\\(^\\(_abstract +\\|\\)\\(_private +\\|\\)\\(_iter +\\|\\)_method.*\\|.*\.\\(def_property\\|add_child\\)\\|.*\.define_\\(shared_variable\\|shared_constant\\|slot_access\\|slot_externally_\\(read\\|writ\\)able\\|property\\|interface\\|method_signature\\).*\\|^\\(\t*#+\>[^>]\\|def_\\(slotted\\|indexed\\)_exemplar\\|def_mixin\\|#% text_encoding\\|_global\\|read_\\(message\\|translator\\)_patch\\).*\\)")
+  
   (if magik-auto-abbrevs (abbrev-mode 1))
 
   (imenu-add-menubar-index)
@@ -2192,15 +2194,15 @@ closing bracket into the new \"{...}\" notation."
   (define-key magik-mode-map (kbd "<f2> <down>") 'magik-forward-method)
   (define-key magik-mode-map (kbd "<f2> $")      'magik-transmit-$-chunk)
 
-  ;;  (define-key magik-f4-map [f4]   'magik-symbol-complete)
-  ;;  (define-key magik-f4-map "c"    'magik-copy-method)
-  ;;  (define-key magik-f4-map "e"    'magik-ediff-methods)
-  ;;  (define-key magik-f4-map [f3]   'cb-magik-ediff-methods)
-  ;;  (define-key magik-f4-map "m"    'magik-copy-method-to-buffer)
-  ;;  (define-key magik-f4-map "n"    'magik-set-work-buffer-name)
-  ;;  (define-key magik-f4-map "r"    'magik-copy-region-to-buffer)
-  ;;  (define-key magik-f4-map "s"    'magik-add-debug-statement)
-  ;;  (define-key magik-f4-map "w"    'magik-compare-methods)
+  (define-key magik-mode-map (kbd "<f4> <f4>")   'magik-symbol-complete)
+  (define-key magik-mode-map (kbd "<f4> c")      'magik-copy-method)
+  (define-key magik-mode-map (kbd "<f4> e")      'magik-ediff-methods)
+  (define-key magik-mode-map (kbd "<f4> <f3>")   'magik-cb-magik-ediff-methods)
+  (define-key magik-mode-map (kbd "<f4> m")      'magik-copy-method-to-buffer)
+  (define-key magik-mode-map (kbd "<f4> n")    	 'magik-set-work-buffer-name)
+  (define-key magik-mode-map (kbd "<f4> r")    	 'magik-copy-region-to-buffer)
+  (define-key magik-mode-map (kbd "<f4> s")    	 'magik-add-debug-statement)
+  (define-key magik-mode-map (kbd "<f4> w")    	 'magik-compare-methods)
   )
 
 (eval-after-load 'flycheck

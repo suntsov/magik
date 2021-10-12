@@ -264,8 +264,9 @@ suitable for selection."
   "Prompt for a valid value for SMALLWORLD_GIS."
   (let ((path
 	 (file-truename (read-directory-name "Enter product directory for Core installation: "))))
-    (setq path (directory-file-name (file-name-directory path)))
-    (subst-char-in-string ?/ ?\\ path t)
+    (setq path (directory-file-name path))
+    (if (eq system-type 'windows-nt)
+	(subst-char-in-string ?/ ?\\ path t))
     path))
 
 (defun magik-version-file-add (root name version)
@@ -285,8 +286,8 @@ suitable for selection."
 	   (setq version (current-word)
 		 name    version)))
      (list root
-	   (read-string "Enter name for this installation: " name)
-	   (read-string "Enter version number of this installation: " version))))
+	   (read-no-blanks-input "Enter name for this installation: " name)
+	   (read-no-blanks-input "Enter version number of this installation: " version))))
 
   (or magik-version-file
       (error "File interface is not being used"))
